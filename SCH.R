@@ -3,11 +3,14 @@
 
 # Clear workspace
 rm(list = ls())
-.rs.restartR()
+#.rs.restartR()
 
 # Load libraries
-library("lmtest")
-library("forecast")
+library('lmtest')
+library('forecast')
+library('Metrics')
+library('strucchange')
+library('CPAT')
 
 # Load data
 data = read.csv(file='030320_data.csv', sep=';', encoding = 'UTF-8')
@@ -37,14 +40,14 @@ plot(ts.r, ylab='Taux sans risque', main='Évolution du taux sans risque')
 dev.off()
 
 # Scatter plot
-png(file='./Figures/Figure3.png', width=480, height=350)
+png(file='./Figures/Figure3.png', width=400, height=400)
 plot(x=ts.r, y=ts.ey, xlab='Taux sans risque', ylab='Earning yield', main='Earning yield vs taux')
 abline(lm(ts.ey~ts.r), col="red")
 dev.off()
 
 # Question 4
 # Fit by least squares
-ls.model = lm(formula = ts.ey ~ ts.r)
+ls.model = lm(ts.ey ~ ts.r)
 summary(ls.model)
 ls.model$coefficients
 
@@ -56,10 +59,10 @@ legend(x=2000, y=0.14, legend=c("Original data", "Fitted data"), col=c("black", 
 dev.off()
 
 # Student's test
-t.test(ts.ey, ls.model$fitted.values)
-# Fisher test
-fisher.test(ts.ey[0:10], ls.model$fitted.values[0:10])
-# R-suared value (https://www.investopedia.com/terms/r/r-squared.asp)
+t.test(data$earningyield, ls.model$fitted.values)
+# F-statistic
+summary(ls.model)$fstatistic
+# Coeffcient of determination
 summary(ls.model)$r.squared
 
 # Question 5
@@ -69,7 +72,7 @@ png(file='./Figures/Figure5.png', width=480, height=350)
 plot(density(ls.model$residuals), main='Dénsité des résidus')
 dev.off()
 # Normality
-png(file='./Figures/Figure6.png', width=480, height=350)
+png(file='./Figures/Figure6.png', width=400, height=400)
 qqnorm(ls.model$residuals)
 qqline(ls.model$residuals, col='red')
 dev.off()
@@ -78,15 +81,10 @@ png(file='./Figures/Figure7.png', width=480, height=350)
 acf(ls.model$residuals, main='Autocorrélation des résidus')
 dev.off()
 # Heteroscedasticity
-# https://www.r-bloggers.com/how-to-detect-heteroscedasticity-and-rectify-it/
-# If there is no heteroscedasticity we should see a flat line on the graph residauls vs fitted
-png(file='./Figures/Figure8.png', width=480, height=350)
+png(file='./Figures/Figure8.png', width=600, height=600)
 par(mfrow=c(2,2))
 plot(ls.model)
 dev.off()
-# A p-Value > 0.05 indicates that the null hypothesis (the variance is unchanging in the residual) can be rejected
-# and therefore heterscedasticity exists.
-# https://stats.stackexchange.com/questions/239060/interpretation-of-breusch-pagan-test-bptest-in-r
 bptest(ls.model)
 
 # Question 6
@@ -115,12 +113,12 @@ summary(ls.model2)
 
 # Plot two scatter plots
 par(mfrow=c(1,2))
-png(file='./Figures/Figure11.png', width=480, height=350)
+png(file='./Figures/Figure11.png', width=400, height=400)
 plot(x=ts.r1, y=ts.ey1, xlab='Taux sans risque', ylab='Earning yield', main='Earning yield vs taux')
 abline(lm(ts.ey1~ts.r1), col="red")
 dev.off()
 
-png(file='./Figures/Figure12.png', width=480, height=350)
+png(file='./Figures/Figure12.png', width=400, height=400)
 plot(x=ts.r2, y=ts.ey2, xlab='Taux sans risque', ylab='Earning yield', main='Earning yield vs taux')
 abline(lm(ts.ey2~ts.r2), col="red")
 dev.off()
@@ -153,18 +151,18 @@ summary(ls.model.new2)
 
 # Scatter plots
 par(mfrow=c(1,1))
-png(file='./Figures/Figure13.png', width=480, height=350)
+png(file='./Figures/Figure13.png', width=400, height=400)
 plot(x=ts.rreal, y=ts.ey, xlab='Taux réel', ylab='Earning yield', main='Earning yield vs taux')
 abline(lm(ts.ey~ts.rreal), col="red")
 dev.off()
 
 par(mfrow=c(1,2))
-png(file='./Figures/Figure14.png', width=480, height=350)
+png(file='./Figures/Figure14.png', width=400, height=400)
 plot(x=ts.rreal1, y=ts.ey1, xlab='Taux réel', ylab='Earning yield', main='Earning yield vs taux')
 abline(lm(ts.ey1~ts.rreal1), col="red")
 dev.off()
 
-png(file='./Figures/Figure15.png', width=480, height=350)
+png(file='./Figures/Figure15.png', width=400, height=400)
 plot(x=ts.rreal2, y=ts.ey2, xlab='Taux réel', ylab='Earning yield', main='Earning yield vs taux')
 abline(lm(ts.ey2~ts.rreal2), col="red")
 dev.off()
@@ -177,9 +175,12 @@ dev.off()
 # i) Autocorrelation plot and the partial autocorrelation plots
 # https://en.wikipedia.org/wiki/Box%E2%80%93Jenkins_method
 
-png(file='./Figures/Figure16.png', width=480, height=350)
 par(mfrow=c(1,2))
+png(file='./Figures/Figure16.png', width=480, height=350)
 acf(data$earningyield, main='Autocorrelation')
+dev.off()
+
+png(file='./Figures/Figure17.png', width=480, height=350)
 pacf(data$earningyield, main='Partial autocorrelation')
 dev.off()
 
@@ -187,14 +188,18 @@ dev.off()
 ey.diff = diff(data$earningyield, differences=1)
 ts.ey.diff = ts(ey.diff, start=c(1960,1), end=c(2019,3), frequency=12)
 
-png(file='./Figures/Figure17.png', width=480, height=350)
 par(mfrow=c(1,2))
-acf(ts.ey.diff, main='Autocorrelation')
-pacf(ts.ey.diff, main='Partial autocorrelation')
+png(file='./Figures/Figure18.png', width=480, height=350)
+acf(ey.diff, main='Autocorrelation')
 dev.off()
-# The partial autocorrelation of an AR(p) process becomes zero at lag p+1 and greater => AR(4)
-# The autocorrelation function of a MA(q) process becomes zero at lag q+1 and greater => MA(5)
-# We estimate a model ARMA(4,5)
+
+png(file='./Figures/Figure19.png', width=480, height=350)
+pacf(ey.diff, main='Partial autocorrelation')
+dev.off()
+
+# The partial autocorrelation of an AR(p) process becomes zero at lag p+1 and greater => AR(1)
+# The autocorrelation function of a MA(q) process becomes zero at lag q+1 and greater => MA(1)
+# We estimate a model ARMA(1,1,1)
 
 # ii) Akaike Information Criterion (AIC)
 pmax = 6; qmax = 6;
@@ -207,23 +212,100 @@ for (p in 0:pmax){
 }
 AIC
 which(AIC == min(AIC), arr.ind = TRUE)
-# ARMA(6,3)
+# ARIMA(6,1,3)
 
 # Question 10
 # Returns best ARIMA model according to either AIC, AICc or BIC value.
-# TO DO: vérifier la qualité de votre estimation
 myarima = auto.arima(ts.ey)
 summary(myarima)
+# ARIMA(1,1,2)
+
+# Plot model data and real data
+ts.arimafit = ts(myarima$fitted, start=c(1960,1), end=c(2019,3), frequency=12)
+
+par(mfrow=c(1,1))
+png(file='./Figures/Figure20.png', width=480, height=350)
+ts.plot(ts.ey, ts.arimafit, gpars = list(ylab='Earning yield', col=c("black", "red"), lty=c("solid", "dotted")), main="Earning yield original et issue de l'ARIMA")
+legend(x=2000, y=0.14, legend=c("Original data", "Fitted data"), col=c("black", "red"), lty=c("solid", "dotted"), cex=0.8)
+dev.off()
 
 # Question 11
-prediction = predict(myarima, 3, se.fit=TRUE)
+# Prediction for 3 periods
+prediction = predict(myarima, 3, interval="confidence")
+ts.pred = ts(prediction$pred, start=c(2019,4), frequency=12)
+
+myforecast = forecast(myarima, level = c(95), h = 3)
+
+par(mfrow=c(1,1))
+png(file='./Figures/Figure21.png', width=480, height=350)
+plot(myforecast, include=250, main="Prédiction ARIMA")
+dev.off()
+
+par(mfrow=c(1,1))
+png(file='./Figures/Figure22.png', width=480, height=350)
+plot(myforecast, include=50, main="Prédiction ARIMA")
+dev.off()
 
 # Question 12
-#MSE(prediction$pred, data$earningyield[(nrow(data)-2):nrow(data)])
-#RMSE(prediction$pred, data$earningyield[(nrow(data)-2):nrow(data)])
+# To do the prediction and compare with real data, we will predict the last 12 moths of the dataset
+
+ts.actual = window(ts.ey, start=c(2018,4), end=c(2019,3), frequency=12)
+arima1 = arima(window(ts.ey, end=c(2018,3)), order=c(1,1,2))
+arima2 = arima(window(ts.ey, end=c(2018,3)), order=c(1,1,1))
+arima3 = arima(window(ts.ey, end=c(2018,3)), order=c(6,1,3))
+
+pred1 = predict(arima1, 12)
+pred2 = predict(arima2, 12)
+pred3 = predict(arima3, 12)
+
+png(file='./Figures/Figure23.png', width=480, height=350)
+ts.plot(ts.actual, pred1$pred, pred2$pred, pred3$pred, gpars = list(ylab='Earning yield', 
+        col=c("black", "red", "blue", "purple")), main="Prédictions de l'earning yield")
+legend(x=2018.8, y=0.052, legend=c("Ground truth", "ARIMA(1,1,2)", "ARIMA(1,1,1)", "ARIMA(6,1,3)"), 
+        col=c("black", "red", "blue", "purple"), lty=c(1,1,1), cex=0.8)
+dev.off()
+
+mae(ts.actual, pred1$pred)
+rmse(ts.actual, pred1$pred)
+
+mae(ts.actual, pred2$pred)
+rmse(ts.actual, pred2$pred)
+
+mae(ts.actual, pred3$pred)
+rmse(ts.actual, pred3$pred)
+
+# Question 11 bis
 
 ##########################################################################
 ## Partie 4: Stabilité du modèle
 
 # Question 13
+# Sliding method
+beta = numeric(0)
+ubeta = numeric(0)
+lbeta = numeric(0)
+
+years = seq(from=1960, to=2010, by=10)
+for (year in years){
+  ey.aux = window(ts.ey, start=c(year,1), end=c(min(year+10,2018),12), frequency=12)
+  r.aux = window(ts.r, start=c(year,1), end=c(min(year+10,2018),12), frequency=12)
+  ls.model = lm(ey.aux ~ r.aux)
+  beta = c( beta, ls.model$coefficients[2] )
+  ubeta = c( ubeta, ls.model$coefficients[2] + 1.96*sqrt(vcov(ls.model)[2,2]) )
+  lbeta = c( lbeta, ls.model$coefficients[2] - 1.96*sqrt(vcov(ls.model)[2,2]) )
+}
+
+png(file='./Figures/Figure24.png', width=480, height=350)
+plot(years, beta, type="l", ylim=c(-0.01,0.015), main="Évolution de beta_r")
+lines(years, ubeta, lty=2)
+lines(years, lbeta, lty=2)
+dev.off()
+
 # Question 14
+cusum = efp(formula = ts.ey ~ ts.r)
+sctest(cusum)
+summary(cusum)
+
+png(file='./Figures/Figure25.png', width=480, height=350)
+plot(cusum)
+dev.off()
