@@ -10,7 +10,6 @@ library('lmtest')
 library('forecast')
 library('Metrics')
 library('strucchange')
-library('CPAT')
 
 # Load data
 data = read.csv(file='030320_data.csv', sep=';', encoding = 'UTF-8')
@@ -173,7 +172,6 @@ dev.off()
 # Question 9
 # Order identification
 # i) Autocorrelation plot and the partial autocorrelation plots
-# https://en.wikipedia.org/wiki/Box%E2%80%93Jenkins_method
 
 par(mfrow=c(1,2))
 png(file='./Figures/Figure16.png', width=480, height=350)
@@ -206,7 +204,7 @@ pmax = 6; qmax = 6;
 AIC = matrix(0, nrow=pmax+1, ncol=qmax+1)
 for (p in 0:pmax){
   for (q in 0:qmax){
-    model = arima(ts.ey.diff, order=c(p,0,q), method="ML")
+    model = arima(ts.ey, order=c(p,1,q), method="ML")
     AIC[p,q] = model$aic
   }
 }
@@ -281,24 +279,44 @@ rmse(ts.actual, pred3$pred)
 
 # Question 13
 # Sliding method
-beta = numeric(0)
-ubeta = numeric(0)
-lbeta = numeric(0)
+beta1 = numeric(0)
+ubeta1 = numeric(0)
+lbeta1 = numeric(0)
+
+beta2 = numeric(0)
+ubeta2 = numeric(0)
+lbeta2 = numeric(0)
 
 years = seq(from=1960, to=2010, by=10)
 for (year in years){
   ey.aux = window(ts.ey, start=c(year,1), end=c(min(year+10,2018),12), frequency=12)
   r.aux = window(ts.r, start=c(year,1), end=c(min(year+10,2018),12), frequency=12)
-  ls.model = lm(ey.aux ~ r.aux)
-  beta = c( beta, ls.model$coefficients[2] )
-  ubeta = c( ubeta, ls.model$coefficients[2] + 1.96*sqrt(vcov(ls.model)[2,2]) )
-  lbeta = c( lbeta, ls.model$coefficients[2] - 1.96*sqrt(vcov(ls.model)[2,2]) )
+  rreal.aux = window(ts.rreal, start=c(year,1), end=c(min(year+10,2018),12), frequency=12)
+  
+  ls.model1 = lm(ey.aux ~ r.aux)
+  ls.model2 = lm(ey.aux ~ rreal.aux)
+  
+  beta1 = c( beta1, ls.model1$coefficients[2] )
+  ubeta1 = c( ubeta1, ls.model1$coefficients[2] + 1.96*sqrt(vcov(ls.model1)[2,2]) )
+  lbeta1 = c( lbeta1, ls.model1$coefficients[2] - 1.96*sqrt(vcov(ls.model1)[2,2]) )
+  
+  beta2 = c( beta2, ls.model2$coefficients[2] )
+  ubeta2 = c( ubeta2, ls.model2$coefficients[2] + 1.96*sqrt(vcov(ls.model2)[2,2]) )
+  lbeta2 = c( lbeta2, ls.model2$coefficients[2] - 1.96*sqrt(vcov(ls.model2)[2,2]) )
 }
 
+par(mfrow=c(1,1))
 png(file='./Figures/Figure24.png', width=480, height=350)
-plot(years, beta, type="l", ylim=c(-0.01,0.015), main="Évolution de beta_r")
-lines(years, ubeta, lty=2)
-lines(years, lbeta, lty=2)
+plot(years, beta1, type="l", ylim=c(-0.01,0.015), main="Évolution de beta")
+lines(years, ubeta1, lty=2)
+lines(years, lbeta1, lty=2)
+dev.off()
+
+par(mfrow=c(1,1))
+png(file='./Figures/Figure25.png', width=480, height=350)
+plot(years, beta2, type="l", ylim=c(-0.01,0.015), main="Évolution de beta")
+lines(years, ubeta2, lty=2)
+lines(years, lbeta2, lty=2)
 dev.off()
 
 # Question 14
@@ -306,6 +324,6 @@ cusum = efp(formula = ts.ey ~ ts.r)
 sctest(cusum)
 summary(cusum)
 
-png(file='./Figures/Figure25.png', width=480, height=350)
+png(file='./Figures/Figure26.png', width=480, height=350)
 plot(cusum)
 dev.off()
